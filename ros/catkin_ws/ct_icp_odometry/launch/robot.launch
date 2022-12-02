@@ -1,0 +1,16 @@
+<!-- Launches the Lidar-Only SLAM with default parameters on NHCD rosbag -->
+<launch>
+  <arg name="rosbag" default="/data/Slammy/data/student-project/2022-11-16-14-54-54.bag"/>
+  <arg name="rate" doc="The rate of the rosbag" default="1.0"/>
+  <arg name="config" default="$(find ct_icp_odometry)/params/ct_icp/robot.yaml" />
+  <arg name="kill_on_finish" default="false" />
+
+  <include file="$(find ct_icp_odometry)/launch/ct_icp_on_rosbag.launch">
+    <arg name="topic" value="/robot/front_3d_laser/points"/>
+    <arg name="config" value="$(arg config)"/>
+    <arg name="start_sec" value="0."/>
+    <arg name="rate" value="$(arg rate)"/>
+    <arg name="rosbag" value="$(arg rosbag)"/>
+    <arg name="kill_on_finish" value="$(arg kill_on_finish)"/>
+  </include>
+</launch>

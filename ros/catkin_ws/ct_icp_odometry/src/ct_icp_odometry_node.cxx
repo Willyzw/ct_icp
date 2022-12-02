@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Odometry.h>
+#include <std_srvs/SetBool.h>
 
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_eigen/tf2_eigen.h>
@@ -31,6 +32,7 @@
 struct Config {
     ct_icp::OdometryOptions odometry_options = ct_icp::OdometryOptions::DefaultDrivingProfile();
     bool output_state_on_failure = true;
+    std::string map_output_dir = "/tmp";
     std::string failure_output_dir = "/tmp";
     ct_icp::TIME_UNIT unit = ct_icp::SECONDS;
     bool check_timestamp_consistency = true;
@@ -338,6 +340,24 @@ void InitializeNode(ros::NodeHandle &public_nh, ros::NodeHandle &nh) {
     tfBroadcasterPtr = std::make_unique<tf2_ros::TransformBroadcaster>();
 }
 
+bool saveMapCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res)
+{
+    ROS_INFO_STREAM("Saving map to " << config.map_output_dir);
+    fs::path output_dir_path(config.map_output_dir);
+    if (!exists(output_dir_path))
+        create_directories(output_dir_path);
+    {
+        auto map_path = output_dir_path / "map.ply";
+        if (debug_print)
+            ROS_INFO_STREAM("Saving Map to " << map_path);
+        auto pc = odometry_ptr->GetMapPointCloud();
+        pc->RegisterFieldsFromSchema();
+        auto mapper = slam::PLYSchemaMapper::BuildDefaultFromBufferCollection(pc->GetCollection());
+        slam::WritePLY(map_path, *pc, mapper);
+    }
+    return true;
+}
+
 /* ------------------------------------------------------------------------------------------------------------------ */
 int main(int argc, char **argv) {
     slam::setup_signal_handler(argc, argv);
@@ -349,6 +369,7 @@ int main(int argc, char **argv) {
     // Add a point cloud subscriber
     ros::Subscriber pointcloud_subscriber = public_nh.subscribe("/ct_icp/pointcloud", 200,
                                                                 &RegisterNewFrameCallback);
+    ros::ServiceServer service = public_nh.advertiseService("/save_map", saveMapCallback);
     ros::spin();
     return 0;
 }
